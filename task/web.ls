@@ -5,6 +5,7 @@ require! \regenerator
 require! \browserify
 require! \inflection
 require! \livescript
+require! \node-notifier
 
 export watch = <[ web olio.ls host.ls ]>
 
@@ -202,6 +203,7 @@ bundle = ->
   .on 'finish', ->
     exec 'cp tmp/bundle.js public/index.js'
     info '--- Done ---'
+    node-notifier.notify title: (inflection.capitalize olio.config.web.app), message: "Site Rebuilt"
 
 export web = ->*
   try
