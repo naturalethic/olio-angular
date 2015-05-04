@@ -6,7 +6,7 @@ require! \browserify
 require! \inflection
 require! \livescript
 
-export watch = <[ web olio.ls host.ls node_modules/olio-angular/task/angular.ls ]>
+export watch = <[ web olio.ls host.ls ]>
 
 concat-files = (list) -> list |> fold ((a, b) -> a + '\n' + fs.read-file-sync(b)), ''
 
