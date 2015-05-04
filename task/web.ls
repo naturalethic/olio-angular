@@ -68,16 +68,18 @@ stitch-utilites = ->
   info 'Writing    -> tmp/utils.js'
   fs.write-file-sync \tmp/utils.js, util-js.join '\n'
 
-olio.config.angular ?= {}
-olio.config.angular.app ?= 'test'
-olio.config.angular.modules ?= []
-
+olio.config.web ?= {}
+olio.config.web.app ?= 'test'
+olio.config.web.modules ?= []
+olio.config.web.imports ?= []
+olio.config.web.require ?= []
+olio.config.web.require-global ?= {}
 
 client-api-script = ->
   client-script = [
     """
       require! 'inflection'
-      angular.module '#{olio.config.angular.app}'
+      angular.module '#{olio.config.web.app}'
       .run ($http) ->
     """
   ]
@@ -102,8 +104,14 @@ client-api-script = ->
   flatten(client-script).join('\n')
 
 stitch-scripts = ->
+  script = []
+  for key, req of olio.config.web.require-global
+    script.push "window.#key = require '#req'"
+  for req in olio.config.web.require
+    script.push "require '#req'"
   script = [
-    fs.read-file-sync 'node_modules/olio-angular/script.ls' .to-string!replace /NG\-APPLICATION/g, olio.config.angular.app
+    script.join '\n'
+    fs.read-file-sync 'node_modules/olio-angular/script.ls' .to-string!replace /NG\-APPLICATION/g, olio.config.web.app
     client-api-script!
   ].join '\n'
   script = [
@@ -118,16 +126,17 @@ stitch-scripts = ->
 
 stitch-styles = ->*
   promisify-all stylus!__proto__
-  source = [
-    concat-files glob.sync 'web/**/*.styl'
-  ].join '\n'
-  css = yield stylus(source).use(nib()).import("nib").render-async!
+  source = []
+  # for imp in olio.config.web.imports
+  #   source.push "@import '#imp'"
+  source.push concat-files glob.sync 'web/**/*.styl'
+  css = yield stylus(source.join '\n').use(nib()).import("nib").render-async!
   info 'Writing    -> tmp/index.css'
   fs.write-file-sync \tmp/index.css, css
 
 stitch-templates = ->
   script = [
-    "angular.module('#{olio.config.angular.app}').run ($template-cache) ->"
+    "angular.module('#{olio.config.web.app}').run ($template-cache) ->"
   ]
   read-view-names! |> each ->
     return if not template = read-template it
@@ -148,7 +157,7 @@ stitch-directives = ->
     directive.restrict = \A
     directive.template-url = it if read-template it #XXX: Slow, cache this
     source = ["""
-      angular.module('#{olio.config.angular.app}').directive('#dname', function($compile, $parse, $timeout) {
+      angular.module('#{olio.config.web.app}').directive('#dname', function($compile, $parse, $timeout) {
         return {
     """]
     for k in keys directive

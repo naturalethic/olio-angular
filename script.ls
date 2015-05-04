@@ -1,3 +1,4 @@
+require './index.css'
 require 'core-js'
 window <<< require 'prelude-ls'
 if console.log.apply
