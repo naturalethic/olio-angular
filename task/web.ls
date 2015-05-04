@@ -122,7 +122,7 @@ stitch-scripts = ->
   for name, func of validate
     script.push "validate.#name = #{func.to-string!};\n"
   info 'Writing    -> tmp/index.js'
-  fs.write-file-sync \tmp/index.js, script.join '\n'
+  fs.write-file-sync \tmp/index.js, regenerator.compile(script.join('\n'), include-runtime: true).code
 
 stitch-styles = ->*
   promisify-all stylus!__proto__
@@ -178,7 +178,7 @@ stitch-directives = ->
     source += "\n  }\n});\n"
     script.push source
   info 'Writing    -> tmp/directive.js'
-  fs.write-file-sync \tmp/directive.js, regenerator.compile(script.join('\n'), include-runtime: true).code
+  fs.write-file-sync \tmp/directive.js, regenerator.compile(script.join('\n'), include-runtime: false).code
 
 bundle = ->
   glob.sync 'web/**/*.!(ls|jade|styl)'
