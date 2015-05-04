@@ -36,11 +36,11 @@ angular.module 'NG-APPLICATION'
       log-data = {} <<<< data
       log-data.secret = '********' if log-data.secret
       log-data.secret-repeat = '********' if log-data.secret-repeat
-      info "API[#count] > " + request.url.substr(5), log-data
+      info "API[#count] > " + request.url.substr(1), log-data
       if (signature = if name then api[module][name].signature else api[module].signature)
         invalid = validate data, signature, null, extra-validators
       if (keys invalid).length
-        info "API[#count*] < #{request.url.substr(5)}", 403, invalid
+        info "API[#count*] < #{request.url.substr(1)}", 403, invalid
         obj =
           success: -> obj
           error: -> obj
@@ -60,13 +60,13 @@ angular.module 'NG-APPLICATION'
         r._data = null if status == 204
         r._status = status
         api.loading -= 1
-        info "API[#count] < #{request.url.substr(5)}", status, data
+        info "API[#count] < #{request.url.substr(1)}", status, data
       .error (data, status, headers, config) ->
         r._data = data
         r._data = null if status == 204
         r._status = status
         api.loading -= 1
-        info "API[#count] < #{request.url.substr(5)}", status, data
+        info "API[#count] < #{request.url.substr(1)}", status, data
         r._invalid data if r._invalid and status == 403
       .then -> r._data
       r.success = (f) -> (r.then -> f r._data); r
