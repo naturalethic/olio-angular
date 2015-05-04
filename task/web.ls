@@ -68,13 +68,30 @@ stitch-utilites = ->
   info 'Writing    -> tmp/utils.js'
   fs.write-file-sync \tmp/utils.js, util-js.join '\n'
 
-# stitch-scripts = ->
-#   glob.sync 'web/init/**/*.ls'
-#   |> concat-files
-#   |> -> livescript.compile it, { header: false, bare: true, no-utils: true }
-#   |> ->
-#     info 'Writing    -> tmp/index.js'
-#     fs.write-file-sync \tmp/index.js, it
+olio.config.angular ?= {}
+olio.config.angular.app ?= 'test'
+olio.config.angular.modules ?= []
+
+stitch-scripts = ->
+  """
+    require 'core-js'
+    window <<< require 'prelude-ls'
+    if console.log.apply
+      <[ log info warn error ]> |> each (key) -> window[key] = -> console[key] ...&
+    else
+      <[ log info warn error ]> |> each (key) -> window[key] = console[key]
+    require  './utils'
+    require! 'angular'
+    angular.module '#{olio.config.angular.app}', [
+      #{(olio.config.angular.modules |> map -> "'#it'").join ', '}
+    ]
+    require './template'
+    require './directive'
+  """
+  |> -> livescript.compile it, { header: false, bare: true, no-utils: true }
+  |> ->
+    info 'Writing    -> tmp/index.js'
+    fs.write-file-sync \tmp/index.js, it
 
 stitch-styles = ->*
   promisify-all stylus!__proto__
@@ -87,7 +104,7 @@ stitch-styles = ->*
 
 stitch-templates = ->
   script = [
-    "angular.module('#{olio.config.app}').run ($template-cache) ->"
+    "angular.module('#{olio.config.angular.app}').run ($template-cache) ->"
   ]
   read-view-names! |> each ->
     return if not template = read-template it
@@ -108,7 +125,7 @@ stitch-directives = ->
     directive.restrict = \A
     directive.template-url = it if read-template it #XXX: Slow, cache this
     source = ["""
-      angular.module('#{olio.config.app}').directive('#dname', function($compile, $parse, $timeout) {
+      angular.module('#{olio.config.angular.app}').directive('#dname', function($compile, $parse, $timeout) {
         return {
     """]
     for k in keys directive
@@ -138,10 +155,7 @@ bundle = ->
   browserify {
     paths: [ './node_modules/olio-angular/node_modules' ]
   }
-  .add './tmp/utils.js'
-  # .add './tmp/index.js'
-  .add './tmp/template.js'
-  .add './tmp/directive.js'
+  .add './tmp/index.js'
   .transform (require \browserify-ngannotate)
   .transform (require \browserify-css), {
     auto-inject-options: { verbose: false }
@@ -161,7 +175,7 @@ export stitch = ->*
     stitch-templates!
     stitch-directives!
     stitch-utilites!
-    # stitch-scripts!
+    stitch-scripts!
     yield stitch-styles!
     bundle!
 
