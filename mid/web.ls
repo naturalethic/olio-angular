@@ -1,5 +1,4 @@
 require! \mime
-require! \moment
 
 cache = {}
 
