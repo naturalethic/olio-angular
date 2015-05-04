@@ -72,26 +72,49 @@ olio.config.angular ?= {}
 olio.config.angular.app ?= 'test'
 olio.config.angular.modules ?= []
 
+
+client-api-script = ->
+  client-script = [
+    """
+      require! 'inflection'
+      angular.module '#{olio.config.angular.app}'
+      .run ($http) ->
+    """
+  ]
+  apis = require-dir \api
+  keys apis
+  |> map (module-name) ->
+    for api-name in keys apis[module-name]
+      api = apis[module-name][api-name]
+      if signature = (typeof! api == 'Array' and first(api |> filter -> typeof! it == 'Object'))
+        signature = {} <<< signature
+        extra-validators = {} <<< (delete signature.validate) or {}
+        for key, val of extra-validators
+          if /^function\*/.test val.to-string!
+            extra-validators[key] = false
+          else
+            extra-validators[key] = val.to-string!
+        for key of signature
+          signature[key] = { -optional } <<< signature[key]
+        client-script.push "  api._add '#module-name', '#api-name', #{JSON.stringify signature}, #{JSON.stringify extra-validators}"
+      else
+        client-script.push "  api._add '#module-name', '#api-name'"
+  flatten(client-script).join('\n')
+
 stitch-scripts = ->
-  """
-    require 'core-js'
-    window <<< require 'prelude-ls'
-    if console.log.apply
-      <[ log info warn error ]> |> each (key) -> window[key] = -> console[key] ...&
-    else
-      <[ log info warn error ]> |> each (key) -> window[key] = console[key]
-    require  './utils'
-    require! 'angular'
-    angular.module '#{olio.config.angular.app}', [
-      #{(olio.config.angular.modules |> map -> "'#it'").join ', '}
-    ]
-    require './template'
-    require './directive'
-  """
-  |> -> livescript.compile it, { header: false, bare: true, no-utils: true }
-  |> ->
-    info 'Writing    -> tmp/index.js'
-    fs.write-file-sync \tmp/index.js, it
+  script = [
+    fs.read-file-sync 'node_modules/olio-angular/script.ls' .to-string!replace /NG\-APPLICATION/g, olio.config.angular.app
+    client-api-script!
+  ].join '\n'
+  script = [
+    livescript.compile script, { header: false, bare: true, no-utils: true }
+  ]
+  validate = require '../../olio-api/validate'
+  script.push "window.validate = #{validate.to-string!};"
+  for name, func of validate
+    script.push "validate.#name = #{func.to-string!};\n"
+  info 'Writing    -> tmp/index.js'
+  fs.write-file-sync \tmp/index.js, script.join '\n'
 
 stitch-styles = ->*
   promisify-all stylus!__proto__
