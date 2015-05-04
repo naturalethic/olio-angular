@@ -198,7 +198,10 @@ bundle = ->
       "#base"
   }
   .bundle!
-  .pipe fs.create-write-stream 'public/index.js'
+  .pipe fs.create-write-stream 'tmp/bundle.js'
+  .on 'finish', ->
+    exec 'cp tmp/bundle.js public/index.js'
+    info '--- Done ---'
 
 export web = ->*
   try
