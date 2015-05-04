@@ -127,8 +127,8 @@ stitch-scripts = ->
 stitch-styles = ->*
   promisify-all stylus!__proto__
   source = []
-  # for imp in olio.config.web.imports
-  #   source.push "@import '#imp'"
+  for imp in olio.config.web.imports
+    source.push "@import '../node_modules/#imp'"
   source.push concat-files glob.sync 'web/**/*.styl'
   css = yield stylus(source.join '\n').use(nib()).import("nib").render-async!
   info 'Writing    -> tmp/index.css'
