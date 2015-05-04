@@ -191,7 +191,7 @@ bundle = ->
   .bundle!
   .pipe fs.create-write-stream 'public/index.js'
 
-export stitch = ->*
+export web = ->*
   try
     exec "mkdir -p tmp"
     exec "mkdir -p public"
