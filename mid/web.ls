@@ -14,7 +14,7 @@ module.exports = (next) ->*
       @log "#path not found, sending index", \FETCHWEB, \green if @log
       path = "/index.html"
     @response.type = mime.lookup path
-    @response.body = fs.read-file-sync "public#path" .to-string!
+    @response.body = fs.read-file-sync "public#path"
     @response.code = 200
     return
   yield next
