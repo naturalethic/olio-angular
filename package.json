@@ -8,6 +8,7 @@
     "browserify-ngannotate": "^0.7.2",
     "co": "^4.5.2",
     "core-js": "^0.9.6",
+    "debowerify": "^1.2.1",
     "inflection": "^1.7.0",
     "jade": "^1.9.2",
     "livescript": "git://github.com/gkz/livescript.git",

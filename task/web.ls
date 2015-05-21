@@ -11,8 +11,10 @@ export watch = <[ web olio.ls host.ls ]>
 
 concat-files = (list) -> list |> fold ((a, b) -> a + '\n' + fs.read-file-sync(b)), ''
 
+_names = null
 read-view-names = ->
-  glob.sync 'web/**/*.+(jade|ls)'
+  return _names if _names
+  _names := glob.sync 'web/**/*.+(jade|ls)'
   |> map -> it.replace(/^web\//, '').replace(/\.(jade|ls)$/, '').replace(/\//g, '-')
   |> unique
   |> map ->
@@ -20,6 +22,11 @@ read-view-names = ->
     if parts.length > 1 and parts[parts.length - 2] in [(last parts), (inflection.singularize last parts)]
       return (parts.slice(0, parts.length - 2) ++ [ last parts ]).join '-'
     it
+  # XXX: Always execute html first, if it exists, for setting up initializations and globals
+  if \html in _names
+    _names.splice _names.index-of \html
+    _names := <[ html ]> ++ _names
+  _names
 
 view-file-for-name = (name, ext) ->
   parts = name.split('-')
@@ -32,13 +39,15 @@ view-file-for-name = (name, ext) ->
     "web/#{fname.join('/')}/#lname/#lname.#ext"
   first (paths |> filter -> fs.exists-sync it)
 
+_templates = {}
 read-template = ->
+  return _templates[it] if _templates.has-own-property it
   path = view-file-for-name it, 'jade'
-  (path and jade.render-file path) or null
+  _templates[it] = (path and jade.render-file path) or ''
 
 read-directive = ->
   path = view-file-for-name it, 'ls'
-  (path and require "#{process.cwd!}/#path") or null
+  (path and fs.read-file-sync("#{process.cwd!}/#path").to-string!) or ''
 
 stitch-utilites = ->
   ls-utils =
@@ -72,9 +81,6 @@ stitch-utilites = ->
 olio.config.web ?= {}
 olio.config.web.app ?= 'test'
 olio.config.web.modules ?= []
-olio.config.web.imports ?= []
-olio.config.web.require ?= []
-olio.config.web.require-global ?= {}
 
 client-api-script = ->
   client-script = [
@@ -105,18 +111,12 @@ client-api-script = ->
   flatten(client-script).join('\n')
 
 stitch-scripts = ->
-  script = []
-  for key, req of olio.config.web.require-global
-    script.push "window.#key = require '#req'"
-  for req in olio.config.web.require
-    script.push "require '#req'"
   script = [
-    script.join '\n'
     fs.read-file-sync 'node_modules/olio-angular/script.ls' .to-string!replace /NG\-APPLICATION/g, olio.config.web.app
     client-api-script!
   ].join '\n'
   script = [
-    livescript.compile script, { header: false, bare: true, no-utils: true }
+    livescript.compile script, { header: false, bare: true }
   ]
   validate = require '../../olio-api/validate'
   script.push "window.validate = #{validate.to-string!};"
@@ -128,8 +128,6 @@ stitch-scripts = ->
 stitch-styles = ->*
   promisify-all stylus!__proto__
   source = []
-  for imp in olio.config.web.imports
-    source.push "@import '../node_modules/#imp'"
   source.push concat-files glob.sync 'web/**/*.styl'
   css = yield stylus(source.join '\n').use(nib()).import("nib").render-async!
   info 'Writing    -> tmp/index.css'
@@ -146,50 +144,55 @@ stitch-templates = ->
       return fs.write-file-sync \public/index.html, template
     script.push """  $template-cache.put '#{it}', \'\'\'#{template.trim!}\'\'\'"""
   info 'Writing    -> tmp/template.js'
-  fs.write-file-sync \tmp/template.js, (livescript.compile script.join('\n'), { header: false, bare: true, no-utils: true })
+  fs.write-file-sync \tmp/template.js, (livescript.compile script.join('\n'))
 
 stitch-directives = ->
   script = [
-    "var co = require('co');"
+    "require! 'co'"
   ]
   read-view-names! |> each ->
-    directive = (read-directive it) or {}
-    dname = camelize it
-    directive.restrict = \A
-    directive.template-url = it if read-template it #XXX: Slow, cache this
-    source = ["""
-      angular.module('#{olio.config.web.app}').directive('#dname', function($compile, $parse, $timeout) {
-        return {
-    """]
-    for k in keys directive
-      if typeof! directive[k] != \Function
-        source.push "    #k: #{JSON.stringify directive[k]},"
-        delete directive[k]
-    for k, v of directive
-      vs = v.to-string!split('\n').join('\n    ').trim!
-      if m = vs.match /^function\* \((.*)\){\n([^]*)/
-        vs = vs.substring 0, vs.length - 1
-        args = m.1.split(',') |> map -> it.trim!
-        vs = vs.replace m.1, ''
-        source.push """    #k: function (#{args.join(', ')}){\n      co.wrap(#{vs}})();\n    },"""
-      else
-        source.push "    #k: #{v.to-string!split('\n').join('\n  ')},"
+    source = []
+    source.push """
+      angular.module '#{olio.config.web.app}' .directive '#{camelize it}', ($compile, $parse, $timeout) ->
+        {
+          restrict: 'A'
+    """
+    source.push "    template-url: '#it'" if read-template it
+    source.push "  } <<< (#{(read-directive it).replace(/\n/g, '\n  ') or '->'})!"
+    # for k in keys directive
+    #   if typeof! directive[k] != \Function
+    #     source.push "    #k: #{JSON.stringify directive[k]},"
+    #     delete directive[k]
+    # for k, v of directive
+    #   vs = v.to-string!split('\n').join('\n    ').trim!
+    #   if m = vs.match /^function\* \((.*)\){\n([^]*)/
+    #     vs = vs.substring 0, vs.length - 1
+    #     args = m.1.split(',') |> map -> it.trim!
+    #     vs = vs.replace m.1, ''
+    #     source.push """    #k: function (#{args.join(', ')}){\n      co.wrap(#{vs}})();\n    },"""
+    #   else
+    #     source.push "    #k: #{v.to-string!split('\n').join('\n  ')},"
     source = source.join('\n')
-    source = source.substring 0, source.length - 1
-    source += "\n  }\n});\n"
+    # source = source.substring 0, source.length - 1
+    # source += "\n  }\n});\n"
     script.push source
+  info script.join('\n')
   info 'Writing    -> tmp/directive.js'
-  fs.write-file-sync \tmp/directive.js, regenerator.compile(script.join('\n'), include-runtime: false).code
+  fs.write-file-sync \tmp/directive.js, regenerator.compile(livescript.compile(script.join('\n')), include-runtime: false).code
 
 bundle = ->
   glob.sync 'web/**/*.!(ls|jade|styl)'
-  |> each -> "cp #it tmp/#{/web\/(.*)/.exec(it).1}"
+  |> each ->
+    path = "public/#{/web\/(.*)/.exec(it).1}"
+    exec "mkdir -p #{fs.path.dirname path}"
+    exec "cp #it #path"
   info 'Browserify -> public/index.js'
-  browserify {
+  browserify <[ ./tmp/index.js ]>, {
     paths: [ './node_modules/olio-angular/node_modules' ]
   }
-  .add './tmp/index.js'
+  .transform (require \debowerify)
   .transform (require \browserify-ngannotate)
+  # .transform (require \cssify)
   .transform (require \browserify-css), {
     auto-inject-options: { verbose: false }
     process-relative-url: (url) ->
@@ -211,7 +214,7 @@ export web = ->*
     exec "mkdir -p public"
     stitch-templates!
     stitch-directives!
-    stitch-utilites!
+    # stitch-utilites!
     stitch-scripts!
     yield stitch-styles!
     bundle!
