@@ -1,11 +1,12 @@
 require 'core-js'
+window.inflection = require \inflection
 window <<< require 'prelude-ls'
 if console.log.apply
   <[ log info warn error ]> |> each (key) -> window[key] = -> console[key] ...&
 else
   <[ log info warn error ]> |> each (key) -> window[key] = console[key]
 # require  './utils'
-require! 'angular'
+# require! 'angular'
 angular.module 'NG-APPLICATION', [
   #{(olio.config.angular.modules |> map -> "'#it'").join ', '}
 ]
@@ -17,6 +18,31 @@ window.cache =
   set: (...args) -> local-storage.set-item ...args
   get: (...args) -> local-storage.get-item ...args
   del: (...args) -> local-storage.remove-item ...args
+
+angular.module 'NG-APPLICATION'
+.run ($root-scope) ->
+  $root-scope.on = (e, l) ->
+    l = co.wrap(l) if /^function callee/.test l.to-string!
+    ll = (...args) -> l ...args
+    @$on e, ll
+  $root-scope.watch = (e, l, f) ->
+    l = co.wrap(l) if /^function callee/.test l.to-string!
+    ll = (n, o) ->
+      return if n == undefined
+      l n, o
+    @$watch (camelize e), ll, f
+  $root-scope.watch-group = (e, l) ->
+    l = co.wrap(l) if /^function callee/.test l.to-string!
+    ll = (n, o) ->
+      return if (n |> filter -> it != undefined).length != n.length
+      l n, o
+    @$watch-group (e |> map -> camelize it), ll
+  $root-scope.watch-collection = (e, l, f) ->
+    l = co.wrap(l) if /^function callee/.test l.to-string!
+    ll = (n, o) ->
+      return if n == undefined
+      l n, o
+    @$watch-collection (camelize e), ll, f
 
 angular.module 'NG-APPLICATION'
 .run ($http) ->

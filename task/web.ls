@@ -49,43 +49,42 @@ read-directive = ->
   path = view-file-for-name it, 'ls'
   (path and fs.read-file-sync("#{process.cwd!}/#path").to-string!) or ''
 
-stitch-utilites = ->
-  ls-utils =
-    clone: 'function(it){\n  function fun(){} fun.prototype = it;\n  return new fun;\n}'
-    extend: 'function(sub, sup){\n  function fun(){} fun.prototype = (sub.superclass = sup).prototype;\n  (sub.prototype = new fun).constructor = sub;\n  if (typeof sup.extended == \'function\') sup.extended(sub);\n  return sub;\n}'
-    bind: 'function(obj, key, target){\n  return function(){ return (target || obj)[key].apply(obj, arguments) };\n}'
-    'import': 'function(obj, src){\n  var own = {}.hasOwnProperty;\n  for (var key in src) if (own.call(src, key)) obj[key] = src[key];\n  return obj;\n}'
-    importAll: 'function(obj, src){\n  for (var key in src) obj[key] = src[key];\n  return obj;\n}'
-    repeatString: 'function(str, n){\n  for (var r = \'\'; n > 0; (n >>= 1) && (str += str)) if (n & 1) r += str;\n  return r;\n}'
-    repeatArray: 'function(arr, n){\n  for (var r = []; n > 0; (n >>= 1) && (arr = arr.concat(arr)))\n    if (n & 1) r.push.apply(r, arr);\n  return r;\n}'
-    'in': 'function(x, xs){\n  var i = -1, l = xs.length >>> 0;\n  while (++i < l) if (x === xs[i]) return true;\n  return false;\n}'
-    out: 'typeof exports != \'undefined\' && exports || this'
-    curry: 'function(f, bound){\n  var context,\n  _curry = function(args) {\n    return f.length > 1 ? function(){\n      var params = args ? args.concat() : [];\n      context = bound ? context || this : this;\n      return params.push.apply(params, arguments) <\n          f.length && arguments.length ?\n        _curry.call(context, params) : f.apply(context, params);\n    } : f;\n  };\n  return _curry();\n}'
-    flip: 'function(f){\n  return curry$(function (x, y) { return f(y, x); });\n}'
-    partialize: 'function(f, args, where){\n  var context = this;\n  return function(){\n    var params = slice$.call(arguments), i,\n        len = params.length, wlen = where.length,\n        ta = args ? args.concat() : [], tw = where ? where.concat() : [];\n    for(i = 0; i < len; ++i) { ta[tw[0]] = params[i]; tw.shift(); }\n    return len < wlen && len ?\n      partialize$.apply(context, [f, ta, tw]) : f.apply(context, ta);\n  };\n}'
-    not: 'function(x){ return !x; }'
-    compose: 'function() {\n  var functions = arguments;\n  return function() {\n    var i, result;\n    result = functions[0].apply(this, arguments);\n    for (i = 1; i < functions.length; ++i) {\n      result = functions[i](result);\n    }\n    return result;\n  };\n}'
-    deepEq: 'function(x, y, type){\n  var toString = {}.toString, hasOwnProperty = {}.hasOwnProperty,\n      has = function (obj, key) { return hasOwnProperty.call(obj, key); };\n  var first = true;\n  return eq(x, y, []);\n  function eq(a, b, stack) {\n    var className, length, size, result, alength, blength, r, key, ref, sizeB;\n    if (a == null || b == null) { return a === b; }\n    if (a.__placeholder__ || b.__placeholder__) { return true; }\n    if (a === b) { return a !== 0 || 1 / a == 1 / b; }\n    className = toString.call(a);\n    if (toString.call(b) != className) { return false; }\n    switch (className) {\n      case \'[object String]\': return a == String(b);\n      case \'[object Number]\':\n        return a != +a ? b != +b : (a == 0 ? 1 / a == 1 / b : a == +b);\n      case \'[object Date]\':\n      case \'[object Boolean]\':\n        return +a == +b;\n      case \'[object RegExp]\':\n        return a.source == b.source &&\n               a.global == b.global &&\n               a.multiline == b.multiline &&\n               a.ignoreCase == b.ignoreCase;\n    }\n    if (typeof a != \'object\' || typeof b != \'object\') { return false; }\n    length = stack.length;\n    while (length--) { if (stack[length] == a) { return true; } }\n    stack.push(a);\n    size = 0;\n    result = true;\n    if (className == \'[object Array]\') {\n      alength = a.length;\n      blength = b.length;\n      if (first) {\n        switch (type) {\n        case \'===\': result = alength === blength; break;\n        case \'<==\': result = alength <= blength; break;\n        case \'<<=\': result = alength < blength; break;\n        }\n        size = alength;\n        first = false;\n      } else {\n        result = alength === blength;\n        size = alength;\n      }\n      if (result) {\n        while (size--) {\n          if (!(result = size in a == size in b && eq(a[size], b[size], stack))){ break; }\n        }\n      }\n    } else {\n      if (\'constructor\' in a != \'constructor\' in b || a.constructor != b.constructor) {\n        return false;\n      }\n      for (key in a) {\n        if (has(a, key)) {\n          size++;\n          if (!(result = has(b, key) && eq(a[key], b[key], stack))) { break; }\n        }\n      }\n      if (result) {\n        sizeB = 0;\n        for (key in b) {\n          if (has(b, key)) { ++sizeB; }\n        }\n        if (first) {\n          if (type === \'<<=\') {\n            result = size < sizeB;\n          } else if (type === \'<==\') {\n            result = size <= sizeB\n          } else {\n            result = size === sizeB;\n          }\n        } else {\n          first = false;\n          result = size === sizeB;\n        }\n      }\n    }\n    stack.pop();\n    return result;\n  }\n}'
-    split: "''.split"
-    replace: "''.replace"
-    toString: '{}.toString'
-    join: '[].join'
-    slice: '[].slice'
-    splice: '[].splice'
-  util-js = []
-  for key in keys(ls-utils)
-    util-js.push "window.#key\$ = #{ls-utils[key]}"
-  info 'Writing    -> tmp/utils.js'
-  fs.write-file-sync \tmp/utils.js, util-js.join '\n'
+# stitch-utilites = ->
+#   ls-utils =
+#     clone: 'function(it){\n  function fun(){} fun.prototype = it;\n  return new fun;\n}'
+#     extend: 'function(sub, sup){\n  function fun(){} fun.prototype = (sub.superclass = sup).prototype;\n  (sub.prototype = new fun).constructor = sub;\n  if (typeof sup.extended == \'function\') sup.extended(sub);\n  return sub;\n}'
+#     bind: 'function(obj, key, target){\n  return function(){ return (target || obj)[key].apply(obj, arguments) };\n}'
+#     'import': 'function(obj, src){\n  var own = {}.hasOwnProperty;\n  for (var key in src) if (own.call(src, key)) obj[key] = src[key];\n  return obj;\n}'
+#     importAll: 'function(obj, src){\n  for (var key in src) obj[key] = src[key];\n  return obj;\n}'
+#     repeatString: 'function(str, n){\n  for (var r = \'\'; n > 0; (n >>= 1) && (str += str)) if (n & 1) r += str;\n  return r;\n}'
+#     repeatArray: 'function(arr, n){\n  for (var r = []; n > 0; (n >>= 1) && (arr = arr.concat(arr)))\n    if (n & 1) r.push.apply(r, arr);\n  return r;\n}'
+#     'in': 'function(x, xs){\n  var i = -1, l = xs.length >>> 0;\n  while (++i < l) if (x === xs[i]) return true;\n  return false;\n}'
+#     out: 'typeof exports != \'undefined\' && exports || this'
+#     curry: 'function(f, bound){\n  var context,\n  _curry = function(args) {\n    return f.length > 1 ? function(){\n      var params = args ? args.concat() : [];\n      context = bound ? context || this : this;\n      return params.push.apply(params, arguments) <\n          f.length && arguments.length ?\n        _curry.call(context, params) : f.apply(context, params);\n    } : f;\n  };\n  return _curry();\n}'
+#     flip: 'function(f){\n  return curry$(function (x, y) { return f(y, x); });\n}'
+#     partialize: 'function(f, args, where){\n  var context = this;\n  return function(){\n    var params = slice$.call(arguments), i,\n        len = params.length, wlen = where.length,\n        ta = args ? args.concat() : [], tw = where ? where.concat() : [];\n    for(i = 0; i < len; ++i) { ta[tw[0]] = params[i]; tw.shift(); }\n    return len < wlen && len ?\n      partialize$.apply(context, [f, ta, tw]) : f.apply(context, ta);\n  };\n}'
+#     not: 'function(x){ return !x; }'
+#     compose: 'function() {\n  var functions = arguments;\n  return function() {\n    var i, result;\n    result = functions[0].apply(this, arguments);\n    for (i = 1; i < functions.length; ++i) {\n      result = functions[i](result);\n    }\n    return result;\n  };\n}'
+#     deepEq: 'function(x, y, type){\n  var toString = {}.toString, hasOwnProperty = {}.hasOwnProperty,\n      has = function (obj, key) { return hasOwnProperty.call(obj, key); };\n  var first = true;\n  return eq(x, y, []);\n  function eq(a, b, stack) {\n    var className, length, size, result, alength, blength, r, key, ref, sizeB;\n    if (a == null || b == null) { return a === b; }\n    if (a.__placeholder__ || b.__placeholder__) { return true; }\n    if (a === b) { return a !== 0 || 1 / a == 1 / b; }\n    className = toString.call(a);\n    if (toString.call(b) != className) { return false; }\n    switch (className) {\n      case \'[object String]\': return a == String(b);\n      case \'[object Number]\':\n        return a != +a ? b != +b : (a == 0 ? 1 / a == 1 / b : a == +b);\n      case \'[object Date]\':\n      case \'[object Boolean]\':\n        return +a == +b;\n      case \'[object RegExp]\':\n        return a.source == b.source &&\n               a.global == b.global &&\n               a.multiline == b.multiline &&\n               a.ignoreCase == b.ignoreCase;\n    }\n    if (typeof a != \'object\' || typeof b != \'object\') { return false; }\n    length = stack.length;\n    while (length--) { if (stack[length] == a) { return true; } }\n    stack.push(a);\n    size = 0;\n    result = true;\n    if (className == \'[object Array]\') {\n      alength = a.length;\n      blength = b.length;\n      if (first) {\n        switch (type) {\n        case \'===\': result = alength === blength; break;\n        case \'<==\': result = alength <= blength; break;\n        case \'<<=\': result = alength < blength; break;\n        }\n        size = alength;\n        first = false;\n      } else {\n        result = alength === blength;\n        size = alength;\n      }\n      if (result) {\n        while (size--) {\n          if (!(result = size in a == size in b && eq(a[size], b[size], stack))){ break; }\n        }\n      }\n    } else {\n      if (\'constructor\' in a != \'constructor\' in b || a.constructor != b.constructor) {\n        return false;\n      }\n      for (key in a) {\n        if (has(a, key)) {\n          size++;\n          if (!(result = has(b, key) && eq(a[key], b[key], stack))) { break; }\n        }\n      }\n      if (result) {\n        sizeB = 0;\n        for (key in b) {\n          if (has(b, key)) { ++sizeB; }\n        }\n        if (first) {\n          if (type === \'<<=\') {\n            result = size < sizeB;\n          } else if (type === \'<==\') {\n            result = size <= sizeB\n          } else {\n            result = size === sizeB;\n          }\n        } else {\n          first = false;\n          result = size === sizeB;\n        }\n      }\n    }\n    stack.pop();\n    return result;\n  }\n}'
+#     split: "''.split"
+#     replace: "''.replace"
+#     toString: '{}.toString'
+#     join: '[].join'
+#     slice: '[].slice'
+#     splice: '[].splice'
+#   util-js = []
+#   for key in keys(ls-utils)
+#     util-js.push "window.#key\$ = #{ls-utils[key]}"
+#   info 'Writing    -> tmp/utils.js'
+#   fs.write-file-sync \tmp/utils.js, util-js.join '\n'
 
 olio.config.web ?= {}
 olio.config.web.app ?= 'test'
-olio.config.web.modules ?= []
+olio.config.web.modules ?= {}
 
 client-api-script = ->
   client-script = [
     """
-      require! 'inflection'
       angular.module '#{olio.config.web.app}'
       .run ($http) ->
     """
@@ -111,10 +110,20 @@ client-api-script = ->
   flatten(client-script).join('\n')
 
 stitch-scripts = ->
-  script = [
+  script = ["""
+    require! 'angular'
+    angular.module '#{olio.config.web.app}', [
+  """]
+  if (keys olio.config.web.modules).length
+    script.push """'#{(keys olio.config.web.modules).join("', '")}"""
+  script.push "']"
+  script ++= [
     fs.read-file-sync 'node_modules/olio-angular/script.ls' .to-string!replace /NG\-APPLICATION/g, olio.config.web.app
     client-api-script!
-  ].join '\n'
+    ((fs.exists-sync 'web/html.ls') and (fs.read-file-sync 'web/html.ls').to-string!) or ''
+  ]
+  script = script.join '\n'
+  info script
   script = [
     livescript.compile script, { header: false, bare: true }
   ]
@@ -148,9 +157,11 @@ stitch-templates = ->
 
 stitch-directives = ->
   script = [
-    "require! 'co'"
+    "var co = require('co');"
   ]
   read-view-names! |> each ->
+    return if it in <[ html ]>
+    directive = read-directive it
     source = []
     source.push """
       angular.module '#{olio.config.web.app}' .directive '#{camelize it}', ($compile, $parse, $timeout) ->
@@ -158,7 +169,7 @@ stitch-directives = ->
           restrict: 'A'
     """
     source.push "    template-url: '#it'" if read-template it
-    source.push "  } <<< (#{(read-directive it).replace(/\n/g, '\n  ') or '->'})!"
+    source.push "  } <<< {\n  #{directive.replace(/\n/g, '\n  ').trim!}\n  }"
     # for k in keys directive
     #   if typeof! directive[k] != \Function
     #     source.push "    #k: #{JSON.stringify directive[k]},"
@@ -175,15 +186,20 @@ stitch-directives = ->
     source = source.join('\n')
     # source = source.substring 0, source.length - 1
     # source += "\n  }\n});\n"
-    script.push source
-  info script.join('\n')
+    # info '-' * 100
+    # info source
+    try
+      script.push livescript.compile source
+    catch e
+      info "Error compiling #{view-file-for-name it, 'ls'}".red
+      throw e
   info 'Writing    -> tmp/directive.js'
-  fs.write-file-sync \tmp/directive.js, regenerator.compile(livescript.compile(script.join('\n')), include-runtime: false).code
+  fs.write-file-sync \tmp/directive.js, regenerator.compile(script.join('\n'), include-runtime: false).code
 
 bundle = ->
   glob.sync 'web/**/*.!(ls|jade|styl)'
   |> each ->
-    path = "public/#{/web\/(.*)/.exec(it).1}"
+    path = "tmp/#{/web\/(.*)/.exec(it).1}"
     exec "mkdir -p #{fs.path.dirname path}"
     exec "cp #it #path"
   info 'Browserify -> public/index.js'
@@ -214,7 +230,9 @@ export web = ->*
     exec "mkdir -p public"
     stitch-templates!
     stitch-directives!
+
     # stitch-utilites!
+
     stitch-scripts!
     yield stitch-styles!
     bundle!
