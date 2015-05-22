@@ -13,7 +13,6 @@ else
 # ]
 require './template'
 require './directive'
-require './index.css'
 
 window.cache =
   set: (...args) -> local-storage.set-item ...args
@@ -78,6 +77,7 @@ angular.module 'NG-APPLICATION'
       request.headers['X-Route']      = state.route
       # ------------------------------------------
       request.headers['Content-Type'] = 'application/json'
+      request.headers['Accept']       = 'application/json'
       request.method                  = 'put'
       request.url                     = '/' + module
       request.url                    += '/' + name if name

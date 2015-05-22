@@ -14,8 +14,8 @@ concat-files = (list) -> list |> fold ((a, b) -> a + '\n' + fs.read-file-sync(b)
 _names = null
 read-view-names = ->
   return _names if _names
-  _names := glob.sync 'web/**/*.+(jade|ls)'
-  |> map -> it.replace(/^web\//, '').replace(/\.(jade|ls)$/, '').replace(/\//g, '-')
+  _names := glob.sync 'web/**/*.+(jade|ls|styl)'
+  |> map -> it.replace(/^web\//, '').replace(/\.(jade|ls|styl)$/, '').replace(/\//g, '-')
   |> unique
   |> map ->
     parts = it.split('-')
@@ -124,6 +124,7 @@ stitch-scripts = ->
     fs.read-file-sync 'node_modules/olio-angular/script.ls' .to-string!replace /NG\-APPLICATION/g, olio.config.web.app
     client-api-script!
     ((fs.exists-sync 'web/html.ls') and (fs.read-file-sync 'web/html.ls').to-string!) or ''
+    "require './index.css'"
   ]
   script = script.join '\n'
   script = [
@@ -140,7 +141,10 @@ stitch-scripts = ->
 stitch-styles = ->*
   promisify-all stylus!__proto__
   source = []
-  source.push concat-files glob.sync 'web/**/*.styl'
+  read-view-names! |> each ->
+    return if !path = view-file-for-name it, 'styl'
+    source.push(fs.read-file-sync(path).to-string!)
+  # source.push concat-files glob.sync 'web/**/*.styl'
   css = yield stylus(source.join '\n').use(nib()).import("nib").render-async!
   info 'Writing    -> tmp/index.css'
   fs.write-file-sync \tmp/index.css, css
@@ -297,8 +301,8 @@ export web = ->*
 
     stitch-utilities!
 
-    stitch-scripts!
     yield stitch-styles!
+    stitch-scripts!
     bundle!
 
   catch e
