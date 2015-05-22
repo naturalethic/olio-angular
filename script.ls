@@ -20,6 +20,22 @@ window.cache =
   get: (...args) -> local-storage.get-item ...args
   del: (...args) -> local-storage.remove-item ...args
 
+re-uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+re-date = /^\\d{4}\\-\\d{2}\\-\\d{2}T/
+re-duration = /^P((([0-9]*\.?[0-9]*)Y)?(([0-9]*\.?[0-9]*)M)?(([0-9]*\.?[0-9]*)W)?(([0-9]*\.?[0-9]*)D)?)?(T(([0-9]*\.?[0-9]*)H)?(([0-9]*\.?[0-9]*)M)?(([0-9]*\.?[0-9]*)S)?)?$/
+transform-dates = (obj) ->
+  switch typeof! obj
+  | 'Array'   => (obj |> each transform-dates); obj
+  | 'Object'  => ((keys obj) |> each -> obj[it] = transform-dates obj[it]); obj
+  | 'String'  =>
+    if re-date.test obj
+      moment(obj)
+    else if re-duration.test obj
+      moment.duration(obj)
+    else
+      obj
+  | otherwise => obj
+
 angular.module 'NG-APPLICATION'
 .run ($root-scope) ->
   $root-scope.on = (e, l) ->
@@ -56,6 +72,11 @@ angular.module 'NG-APPLICATION'
       else
         data = {} <<<< data
       request                         = { data: data, headers: {} }
+      # --- APPLICATION SPECIFIC ABSTRACT THIS ---
+      request.headers['X-Token']      = cache.get 'token'  if (cache.get 'token') and re-uuid.test(cache.get 'token')
+      request.headers['X-Person']     = cache.get 'person' if (cache.get 'person') and re-uuid.test(cache.get 'person')
+      request.headers['X-Route']      = state.route
+      # ------------------------------------------
       request.headers['Content-Type'] = 'application/json'
       request.method                  = 'put'
       request.url                     = '/' + module
@@ -77,6 +98,7 @@ angular.module 'NG-APPLICATION'
       request.transform-response = (data) ->
         try
           data = JSON.parse data
+          data = transform-dates data
         data
       for key, val of data
         if val._d
@@ -84,6 +106,9 @@ angular.module 'NG-APPLICATION'
       api.loading += 1
       r = $http request
       .success (data, status, headers, config) ->
+        # --- APPLICATION SPECIFIC ABSTRACT THIS ---
+        cache.set 'token', headers('X-Token') if headers('X-Token')
+        # ------------------------------------------
         r._data = data
         r._data = null if status == 204
         r._status = status
