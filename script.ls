@@ -1,5 +1,6 @@
 require 'core-js'
 window.inflection = require \inflection
+window.co = require \co
 window <<< require 'prelude-ls'
 if console.log.apply
   <[ log info warn error ]> |> each (key) -> window[key] = -> console[key] ...&
@@ -7,9 +8,9 @@ else
   <[ log info warn error ]> |> each (key) -> window[key] = console[key]
 # require  './utils'
 # require! 'angular'
-angular.module 'NG-APPLICATION', [
-  #{(olio.config.angular.modules |> map -> "'#it'").join ', '}
-]
+# angular.module 'NG-APPLICATION', [
+#   #{(olio.config.angular.modules |> map -> "'#it'").join ', '}
+# ]
 require './template'
 require './directive'
 require './index.css'
