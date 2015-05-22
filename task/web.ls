@@ -130,7 +130,8 @@ stitch-scripts = ->
     livescript.compile script, { header: false, bare: true }
   ]
   validate = require '../../olio-api/validate'
-  script.push "window.validate = #{validate.to-string!};"
+  f = validate.to-string!replace(/^function\*/, 'function').replace(/yield\sthis._validator/, 'this._validator')
+  script.push "window.validate = #f;"
   for name, func of validate
     script.push "validate.#name = #{func.to-string!};\n"
   info 'Writing    -> tmp/index.js'
