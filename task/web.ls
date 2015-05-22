@@ -123,7 +123,6 @@ stitch-scripts = ->
     ((fs.exists-sync 'web/html.ls') and (fs.read-file-sync 'web/html.ls').to-string!) or ''
   ]
   script = script.join '\n'
-  info script
   script = [
     livescript.compile script, { header: false, bare: true }
   ]
