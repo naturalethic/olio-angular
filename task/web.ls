@@ -112,6 +112,8 @@ client-api-script = ->
 stitch-scripts = ->
   script = ["""
     require! './utilities'
+    window.$ = require 'jquery'
+    window.jQuery = require 'jquery'
     require! 'angular'
     angular.module '#{olio.config.web.app}', [
   """]
