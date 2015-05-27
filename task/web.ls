@@ -38,11 +38,9 @@ view-file-for-name = (name, ext) ->
     "web/#{fname.join('/')}/#lname/#lname.#ext"
   first (paths |> filter -> fs.exists-sync it)
 
-_templates = {}
 read-template = ->
-  return _templates[it] if _templates.has-own-property it
   path = view-file-for-name it, 'jade'
-  _templates[it] = (path and jade.render-file path) or ''
+  (path and jade.render-file path) or ''
 
 read-directive = ->
   path = view-file-for-name it, 'ls'
@@ -236,7 +234,7 @@ bundle = ->
   .on 'finish', ->
     exec 'cp tmp/bundle.js public/index.js'
     info "--- Done in #{(Date.now! - time) / 1000} seconds ---"
-    node-notifier.notify title: (inflection.capitalize olio.config.web.app), message: "Site Rebuilt"
+    node-notifier.notify title: (inflection.capitalize olio.config.web.app), message: "Site Rebuilt: #{(Date.now! - time) / 1000}s"
     process.exit 0 if olio.option.exit
 
 time = null
