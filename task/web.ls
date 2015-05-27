@@ -6,8 +6,7 @@ require! \browserify
 require! \inflection
 require! \livescript
 require! \node-notifier
-
-export watch = <[ web olio.ls host.ls ]>
+require! \watchify
 
 concat-files = (list) -> list |> fold ((a, b) -> a + '\n' + fs.read-file-sync(b)), ''
 
@@ -168,12 +167,6 @@ stitch-directives = ->
   read-view-names! |> each ->
     return if it in <[ html ]>
     directive = read-directive it
-    # directive = directive.replace /(:\s*?(\([^\)]*?\))\s*?\-\>\*)/, ->
-    #   info 'REPLCE', &2
-    #   info "#{it.substr(0, it.length - 1)} (co.wrap #{it.substr(1)})!"
-    #   info "#{it.substr(0, it.length - 1)} (co.wrap #{it.substr(1)})!"
-    #   return 'x'
-    #   return "#{it.substr(0, it.length - 1)} (co.wrap #{it.substr(1)})!"
     source = []
     source.push """
       {
@@ -181,20 +174,6 @@ stitch-directives = ->
     """
     source.push "  template-url: '#it'" if read-template it
     source.push "} <<< {\n  #{directive.replace(/\n/g, '\n  ').trim!}\n}"
-    # source.push """
-    #   for k, v of directive-#{it}
-    #     if typeof! v is 'Function' and /^function callee/.test v.to-string!
-    #       vs = v.to-string!split('\\n').join('\\n    ').trim!
-    #       if m = vs.match /^function\\* \\((.*)\\){\\n([^]*)/
-    #         vs = vs.substring 0, vs.length - 1
-    #         args = m.1.split(',') |> map -> it.trim!
-    #         vs = vs.replace m.1, ''
-    #         directive-#{it}[key] = eval("function (\#{args.join(', ')}){\\n      co.wrap(\#{vs}})();\\n    }")
-    #     # info typeof
-    #     # if typeof! func is 'Function' and /^function callee/.test func.to-string!
-    #     #   directive-#{it}[key] = co.wrap(func)
-    # """
-    # return if it != \cfh-root
     source = livescript.compile source.join('\n'), { +bare }
     directive = eval source
     source = [
@@ -215,68 +194,32 @@ stitch-directives = ->
       else
         source.push "    #k: #{v.to-string!split('\n').join('\n  ')},"
     source.push '  }\n});'
-    # info source.join('\n')
-      # vs = vs.substring 0, vs.length - 1
-      # args = m.1.split(',') |> map -> it.trim!
-      # vs = vs.replace m.1, ''
-      # source.push """    #k: function (#{args.join(', ')}){\n      co.wrap(#{vs}})();\n    },"""
-
-    # info source
-    # directive = eval(livescript.compile source.join('\n'), { +bare })
-
-    # info directive
-
-
-
-
-    # source.push """
-    #   angular.module('#{olio.config.web.app}').directive('#{camelize it}'), function ($compile, $parse, $timeout) {
-    #     return directive#{capitalize camelize it};
-    #   }
-    # """
-    # for k in keys directive
-    #   if typeof! directive[k] != \Function
-    #     source.push "    #k: #{JSON.stringify directive[k]},"
-    #     delete directive[k]
-    # for k, v of directive
-    #   vs = v.to-string!split('\n').join('\n    ').trim!
-    #   if m = vs.match /^function\* \((.*)\){\n([^]*)/
-    #     vs = vs.substring 0, vs.length - 1
-    #     args = m.1.split(',') |> map -> it.trim!
-    #     vs = vs.replace m.1, ''
-    #     source.push """    #k: function (#{args.join(', ')}){\n      co.wrap(#{vs}})();\n    },"""
-    #   else
-    #     source.push "    #k: #{v.to-string!split('\n').join('\n  ')},"
     source = source.join('\n')
-    # info source
-    # throw \FOO
-    # source = source.substring 0, source.length - 1
-    # source += "\n  }\n});\n"
-    # info '-' * 100
-    # info source
-    try
-      # source = livescript.compile source
-
-      script.push source
-    catch e
-      info "Error compiling #{view-file-for-name it, 'ls'}".red
-      throw e
+    script.push source
   info 'Writing    -> tmp/directive.js'
   fs.write-file-sync \tmp/directive.js, regenerator.compile(script.join('\n'), include-runtime: false).code
 
-bundle = ->
+bundler = null
+
+setup-bundler = ->
   glob.sync 'web/**/*.!(ls|jade|styl)'
   |> each ->
     path = "tmp/#{/web\/(.*)/.exec(it).1}"
     exec "mkdir -p #{fs.path.dirname path}"
     exec "cp #it #path"
-  info 'Browserify -> public/index.js'
-  browserify <[ ./tmp/index.js ]>, {
-    paths: [ './node_modules/olio-angular/node_modules' ]
+  no-parse = []
+  try
+    no-parse.push require.resolve("#{process.cwd!}/node_modules/jquery")
+  b = browserify <[ ./tmp/index.js ]>, {
+    paths: <[ ./node_modules/olio-angular/node_modules ]>
+    no-parse: no-parse
+    detect-globals: false
+    cache: {}
+    package-cache: {}
   }
-  .transform (require \debowerify)
+  bundler := watchify b
+  bundler.transform (require \debowerify)
   # .transform (require \browserify-ngannotate)
-  # .transform (require \cssify)
   .transform (require \browserify-css), {
     auto-inject-options: { verbose: false }
     process-relative-url: (url) ->
@@ -285,26 +228,42 @@ bundle = ->
       exec "cp #path public/#base"
       "#base"
   }
-  .bundle!
+
+bundle = ->
+  info 'Browserify -> public/index.js'
+  bundler.bundle!
   .pipe fs.create-write-stream 'tmp/bundle.js'
   .on 'finish', ->
     exec 'cp tmp/bundle.js public/index.js'
-    info '--- Done ---'
+    info "--- Done in #{(Date.now! - time) / 1000} seconds ---"
     node-notifier.notify title: (inflection.capitalize olio.config.web.app), message: "Site Rebuilt"
+    process.exit 0 if olio.option.exit
 
-export web = ->*
+time = null
+
+build = (what) ->*
   try
+    time := Date.now!
     exec "mkdir -p tmp"
     exec "mkdir -p public"
-    stitch-templates!
-    stitch-directives!
-
-    stitch-utilities!
-
-    yield stitch-styles!
+    switch what
+    | \styles   => yield stitch-styles!
+    | otherwise =>
+      stitch-templates!
+      stitch-directives!
+      yield stitch-styles!
     stitch-scripts!
     bundle!
-
   catch e
     info e
-    process.exit 1
+
+export web = ->*
+  setup-bundler!
+  stitch-utilities!
+  watcher.watch <[ olio.ls host.ls web ]>, persistent: true, ignore-initial: true .on 'all', (event, path) ->
+    info "Change detected in '#path'..."
+    if /styl$/.test path
+      co build \styles
+    else
+      co build
+  co build

@@ -11,7 +11,6 @@
     "browserify": "^10.0.0",
     "browserify-css": "^0.6.1",
     "browserify-ngannotate": "^0.7.2",
-    "co": "^4.5.2",
     "core-js": "^0.9.6",
     "debowerify": "^1.2.1",
     "inflection": "^1.7.0",
@@ -23,6 +22,7 @@
     "node-notifier": "^4.2.1",
     "prelude-ls": "^1.1.1",
     "regenerator": "^0.8.22",
-    "stylus": "^0.51.1"
+    "stylus": "^0.51.1",
+    "watchify": "^3.2.1"
   }
 }
