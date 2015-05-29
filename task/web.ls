@@ -247,9 +247,9 @@ build = (what) ->*
     switch what
     | \styles   => yield stitch-styles!
     | otherwise =>
+      stitch-templates!
       stitch-directives!
       yield stitch-styles!
-    stitch-templates!
     stitch-scripts!
     bundle!
   catch e
