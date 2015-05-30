@@ -226,6 +226,8 @@ setup-bundler = ->
       exec "cp #path public/#base"
       "#base"
   }
+  bundler.on \update, ->
+    bundle!
 
 bundle = ->
   info 'Browserify -> public/index.js'
@@ -242,8 +244,6 @@ time = null
 build = (what) ->*
   try
     time := Date.now!
-    exec "mkdir -p tmp"
-    exec "mkdir -p public"
     switch what
     | \styles   => yield stitch-styles!
     | otherwise =>
@@ -251,11 +251,12 @@ build = (what) ->*
       stitch-directives!
       yield stitch-styles!
     stitch-scripts!
-    bundle!
   catch e
     info e
 
 export web = ->*
+  exec "mkdir -p tmp"
+  exec "mkdir -p public"
   setup-bundler!
   stitch-utilities!
   watcher.watch <[ olio.ls host.ls web ]>, persistent: true, ignore-initial: true .on 'all', (event, path) ->
@@ -265,3 +266,4 @@ export web = ->*
     else
       co build
   co build
+  .then bundle
