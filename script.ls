@@ -20,7 +20,7 @@ window.cache =
   del: (...args) -> local-storage.remove-item ...args
 
 re-uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
-re-date = /^\\d{4}\\-\\d{2}\\-\\d{2}T/
+re-date = /^\d{4}\-\d{2}\-\d{2}T/
 re-duration = /^P((([0-9]*\.?[0-9]*)Y)?(([0-9]*\.?[0-9]*)M)?(([0-9]*\.?[0-9]*)W)?(([0-9]*\.?[0-9]*)D)?)?(T(([0-9]*\.?[0-9]*)H)?(([0-9]*\.?[0-9]*)M)?(([0-9]*\.?[0-9]*)S)?)?$/
 transform-dates = (obj) ->
   switch typeof! obj
