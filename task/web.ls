@@ -259,7 +259,7 @@ export web = ->*
   exec "mkdir -p public"
   setup-bundler!
   stitch-utilities!
-  watcher.watch <[ olio.ls host.ls web ]>, persistent: true, ignore-initial: true .on 'all', (event, path) ->
+  watcher.watch <[ validate.ls olio.ls host.ls web ]>, persistent: true, ignore-initial: true .on 'all', (event, path) ->
     info "Change detected in '#path'..."
     if /styl$/.test path
       co build \styles
