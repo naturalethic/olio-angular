@@ -118,7 +118,7 @@ stitch-scripts = ->
     script.push """'#{(keys olio.config.web.modules).join("', '")}'"""
   script.push "]"
   script ++= [
-    fs.read-file-sync 'node_modules/olio-angular/script.ls' .to-string!replace /NG\-APPLICATION/g, olio.config.web.app
+    fs.read-file-sync('node_modules/olio-angular/script.ls').to-string!replace(/NG\-APPLICATION/g, olio.config.web.app).replace(/OLIO\-API\-ROOT/g, olio.config.api.root)
     client-api-script!
     ((fs.exists-sync 'web/html.ls') and (fs.read-file-sync 'web/html.ls').to-string!) or ''
     "require './index.css'"
